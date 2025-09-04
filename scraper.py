@@ -35,6 +35,8 @@ except Exception:
     driver = webdriver.Chrome()
 
 all_data_from_all_tabs = []
+# Variabel untuk melacak referensi ke elemen baris terakhir yang terlihat
+last_known_row_element = None
 
 try:
     # --- 1. Proses Login ---
@@ -51,45 +53,48 @@ try:
     time.sleep(3)
 
     # --- 3. Loop Utama untuk Setiap Tab ---
-    for i, tab_name in enumerate(TABS_TO_SCRAPE):
+    for tab_name in TABS_TO_SCRAPE:
         print(f"\n--- Memulai proses untuk tab: '{tab_name}' ---")
         try:
-            # Ambil referensi ke badan tabel SAAT INI sebelum melakukan klik
-            current_table_body = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".table-responsive tbody")))
-            
-            # Klik tab
             tab_element = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, tab_name)))
             
-            # Untuk tab pertama, kita tidak perlu menunggu 'staleness', langsung proses
-            if i > 0: # Hanya lakukan klik jika bukan tab pertama (karena sudah aktif)
-                 tab_element.click()
-                 # --- PERINTAH TUNGGU BARU YANG LEBIH ANDAL ---
-                 print("Menunggu data lama menghilang (staleness)...")
-                 wait.until(EC.staleness_of(current_table_body))
-                 print("Data baru terdeteksi. Memulai pengambilan.")
-                 # ----------------------------------------------
-
-            # --- Loop Pagination (untuk setiap halaman di dalam tab) ---
+            # Hanya klik jika bukan tab pertama, dan tunggu data lama hilang
+            if last_known_row_element: # Ini akan True untuk semua tab setelah tab pertama
+                tab_element.click()
+                print(f"Berhasil mengklik tab '{tab_name}'.")
+                # --- STRATEGI TUNGGU BARU YANG DISESUAIKAN ---
+                print("Menunggu data lama menghilang (staleness of last known row)...")
+                wait.until(EC.staleness_of(last_known_row_element))
+                print("Data baru terdeteksi. Memulai pengambilan.")
+                # ---------------------------------------------
+            
+            # --- Loop Pagination ---
             page_number = 1
             while True:
                 print(f"Membaca data dari Halaman {page_number} di tab '{tab_name}'...")
                 
-                # Selalu cari referensi baru ke badan tabel di setiap halaman
                 table_body = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".table-responsive tbody")))
                 
-                # Tunggu hingga setidaknya satu baris muncul, untuk menghindari tabel kosong sesaat
-                wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".table-responsive tbody tr")))
-                time.sleep(1) # Jeda singkat untuk render
-                
+                try:
+                    # Tunggu hingga setidaknya satu baris muncul
+                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".table-responsive tbody tr")))
+                except TimeoutException:
+                    # Jika tabel benar-benar kosong (tidak ada <tr> sama sekali)
+                    print(f"Tab '{tab_name}' tidak memiliki data. Lanjut ke tab berikutnya.")
+                    break # Keluar dari loop pagination
+
                 rows = table_body.find_elements(By.TAG_NAME, "tr")
+                if rows:
+                    # Simpan referensi ke baris pertama di halaman saat ini
+                    last_known_row_element = rows[0]
+
                 for row in rows:
                     cols = row.find_elements(By.TAG_NAME, "td")
-                    if len(cols) > 1: # Mengabaikan baris "No data available in table"
+                    if len(cols) > 1:
                         row_data = [col.text for col in cols if col.text.strip() != '']
                         if row_data:
                             all_data_from_all_tabs.append(row_data)
-
-                # Cek dan klik tombol 'Next'
+                
                 try:
                     next_button = driver.find_element(By.LINK_TEXT, "Next")
                     parent_li = next_button.find_element(By.XPATH, "..")
@@ -115,7 +120,7 @@ except Exception as e:
 finally:
     driver.quit()
 
-# --- 4. Buat DataFrame, Hapus Duplikat, dan Simpan ke CSV ---
+# --- 4. Proses Akhir ---
 # (Bagian ini tidak berubah)
 df = pd.DataFrame()
 if all_data_from_all_tabs:
