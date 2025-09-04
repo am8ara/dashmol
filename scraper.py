@@ -11,13 +11,11 @@ import os
 # =============================================================================
 # Konfigurasi
 # =============================================================================
-LOGIN_URL = 'https://admin-molina.imigrasi.go.id/admin/login' 
-DATA_URL = 'https://admin-molina.imigrasi.go.id/admin/verification-staypermit' 
+LOGIN_URL = 'https://admin-molina.imigrasi.go.id/admin/login'
+DATA_URL = 'https://admin-molina.imigrasi.go.id/admin/verification-staypermit'
 YOUR_USERNAME = os.getenv("MOLINA_USERNAME")
 YOUR_PASSWORD = os.getenv("MOLINA_PASSWORD")
 
-# DAFTAR TAB YANG AKAN DIAMBIL DATANYA
-# Anda bisa menambah atau mengurangi isi list ini sesuai kebutuhan
 TABS_TO_SCRAPE = ["Verifikasi", "Ditolak", "Dipending", "Disetujui", "Terbit"]
 
 # =============================================================================
@@ -29,19 +27,14 @@ if not YOUR_USERNAME or not YOUR_PASSWORD:
 
 print("Memulai proses pengambilan data dari semua tab...")
 
-service = Service(executable_path='./chromedriver.exe') # Path ini relevan untuk local run
-options = webdriver.ChromeOptions()
-# options.add_argument("--headless") # Aktifkan saat dijalankan di GitHub Actions
-
-# Untuk GitHub Actions, kita tidak perlu service path
-# Jika dijalankan di GitHub Actions, driver akan di-setup secara otomatis
+# Setup driver (cocok untuk local dan GitHub Actions)
 try:
+    options = webdriver.ChromeOptions()
+    # options.add_argument("--headless")
     driver = webdriver.Chrome(options=options)
 except Exception:
-    # Fallback untuk environment GitHub Actions
     driver = webdriver.Chrome()
 
-# List utama untuk menampung semua data dari semua tab
 all_data_from_all_tabs = []
 
 try:
@@ -52,48 +45,42 @@ try:
     wait.until(EC.presence_of_element_located((By.ID, "password"))).send_keys(YOUR_PASSWORD)
     wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']"))).click()
     print("Login berhasil.")
-    
+
     # --- 2. Buka Halaman Data Utama ---
     driver.get(DATA_URL)
     print(f"Berhasil membuka halaman data utama: {driver.current_url}")
-    time.sleep(3) # Beri waktu halaman untuk memuat sepenuhnya
+    time.sleep(3)
 
     # --- 3. Loop Utama untuk Setiap Tab ---
     for tab_name in TABS_TO_SCRAPE:
         print(f"\n--- Memulai proses untuk tab: '{tab_name}' ---")
         try:
-            # Klik tab berdasarkan teksnya
             tab_element = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, tab_name)))
             tab_element.click()
             print(f"Berhasil mengklik tab '{tab_name}'.")
-            time.sleep(3) # Tunggu data di tabel untuk refresh
+            time.sleep(3)
 
-            # --- Loop Pagination (untuk setiap halaman di dalam tab) ---
+            # --- Loop Pagination ---
             page_number = 1
             while True:
                 print(f"Membaca data dari Halaman {page_number} di tab '{tab_name}'...")
-                
                 table_body = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".table-responsive tbody")))
-                
-                # Tunggu sebentar untuk memastikan semua baris data sudah muncul
                 time.sleep(2)
                 
                 rows = table_body.find_elements(By.TAG_NAME, "tr")
                 for row in rows:
                     cols = row.find_elements(By.TAG_NAME, "td")
-                    # Mengabaikan baris "No data available in table"
                     if len(cols) > 1:
                         row_data = [col.text for col in cols if col.text.strip() != '']
                         if row_data:
                             all_data_from_all_tabs.append(row_data)
 
-                # Cek dan klik tombol 'Next'
                 try:
                     next_button = driver.find_element(By.LINK_TEXT, "Next")
                     parent_li = next_button.find_element(By.XPATH, "..")
                     if "disabled" in parent_li.get_attribute("class"):
                         print(f"Halaman terakhir di tab '{tab_name}' tercapai.")
-                        break 
+                        break
                     else:
                         print("Menuju halaman berikutnya...")
                         driver.execute_script("arguments[0].click();", next_button)
@@ -113,7 +100,7 @@ except Exception as e:
 finally:
     driver.quit()
 
-# --- 4. Buat DataFrame dan Simpan ke CSV ---
+# --- 4. Buat DataFrame, Hapus Duplikat, dan Simpan ke CSV ---
 df = pd.DataFrame()
 if all_data_from_all_tabs:
     print(f"\nTotal {len(all_data_from_all_tabs)} baris data berhasil dikumpulkan dari SEMUA tab.")
@@ -124,8 +111,16 @@ if all_data_from_all_tabs:
         "Tujuan", "Posisi Permohonan", "Status Permohonan"
     ]
     df = pd.DataFrame(all_data_from_all_tabs, columns=column_headers)
+
+    # --- PERINTAH BARU UNTUK MENGHAPUS DUPLIKAT ---
+    initial_rows = len(df)
+    df.drop_duplicates(subset=['Nomor Permohonan'], keep='last', inplace=True)
+    final_rows = len(df)
+    print(f"Menghapus {initial_rows - final_rows} data duplikat berdasarkan 'Nomor Permohonan'.")
+    # ----------------------------------------------
+    
     df.to_csv('data_imigrasi.csv', index=False)
-    print(f"Data gabungan berhasil disimpan ke 'data_imigrasi.csv'.")
+    print(f"Data bersih sebanyak {final_rows} baris berhasil disimpan ke 'data_imigrasi.csv'.")
 else:
     print("Gagal menyimpan file: Tidak ada data yang berhasil diekstrak.")
 
