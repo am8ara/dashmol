@@ -1,0 +1,51 @@
+# Nama workflow yang akan muncul di tab Actions
+name: Run Scraper and Update Data
+
+# Pemicu workflow
+on:
+  workflow_dispatch: # Agar bisa dijalankan manual
+  schedule:
+    # Menjalankan setiap jam, pada menit ke-0
+    # Gunakan https://crontab.guru/ untuk membuat jadwal sendiri
+    - cron: '0 * * * *'
+
+# Pekerjaan yang harus dilakukan
+jobs:
+  scrape:
+    # Menggunakan sistem operasi Ubuntu terbaru
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout kode dari repository
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Google Chrome (diperlukan untuk Selenium)
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      # 3. Setup Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 4. Install semua library Python yang dibutuhkan
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 5. Jalankan skrip scraper.py
+      - name: Run Python scraper
+        env:
+          MOLINA_USERNAME: ${{ secrets.MOLINA_USERNAME }}
+          MOLINA_PASSWORD: ${{ secrets.MOLINA_PASSWORD }}
+        run: python scraper.py
+
+      # 6. Commit dan push file data_imigrasi.csv yang baru
+      - name: Commit and push if it changed
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: Automated data update"
+          file_pattern: data_imigrasi.csv
