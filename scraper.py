@@ -3,6 +3,7 @@ import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
@@ -11,11 +12,8 @@ import os
 # =============================================================================
 # Konfigurasi
 # =============================================================================
-# --- PERBAIKAN URL DI SINI ---
 LOGIN_URL = 'https://admin-molina.imigrasi.go.id/admin/login'
 DATA_URL = 'https://admin-molina.imigrasi.go.id/admin/verification-staypermit'
-# -----------------------------
-
 YOUR_USERNAME = os.getenv("MOLINA_USERNAME")
 YOUR_PASSWORD = os.getenv("MOLINA_PASSWORD")
 
@@ -37,7 +35,8 @@ print("Memulai proses pengambilan data dari semua tab...")
 
 try:
     options = webdriver.ChromeOptions()
-    # options.add_argument("--headless")
+    options.add_argument("--headless=new")
+    options.add_argument("--window-size=1920,1080")
     driver = webdriver.Chrome(options=options)
 except Exception:
     driver = webdriver.Chrome()
@@ -70,9 +69,23 @@ try:
             print(f"Berhasil mengklik tab '{tab_name}'.")
 
             wait.until(EC.text_to_be_present_in_element_attribute((By.ID, tab_id), 'class', 'active'))
-            print("Tab dikonfirmasi aktif. Memulai pengambilan data.")
-            time.sleep(2)
-
+            print("Tab dikonfirmasi aktif.")
+            
+            # --- OPTIMASI 1: Ubah "Show Entries" menjadi 100 ---
+            try:
+                dropdown_id = f"{tab_id_suffix}-table_length"
+                
+                # --- PERBAIKAN DI SINI: Tunggu hingga elemen bisa diinteraksikan ---
+                select_element = wait.until(EC.element_to_be_clickable((By.NAME, dropdown_id)))
+                # -------------------------------------------------------------
+                
+                select_object = Select(select_element)
+                select_object.select_by_value("100")
+                print("Berhasil mengubah tampilan menjadi 100 data per halaman.")
+                time.sleep(3)
+            except TimeoutException:
+                print("Dropdown 'Show Entries' tidak ditemukan, melanjutkan dengan default.")
+            
             # --- Loop Pagination ---
             page_number = 1
             while True:
@@ -121,6 +134,7 @@ finally:
 
 # --- 4. Proses Akhir ---
 # (Bagian ini tidak berubah)
+# ... (sisa kodenya sama persis) ...
 df = pd.DataFrame()
 if all_data_from_all_tabs:
     print(f"\nTotal {len(all_data_from_all_tabs)} baris data berhasil dikumpulkan dari SEMUA tab.")
@@ -128,7 +142,7 @@ if all_data_from_all_tabs:
     df = pd.DataFrame(all_data_from_all_tabs, columns=column_headers)
     
     initial_rows = len(df)
-    df.drop_duplicates(subset=['Nomor Permohonan'], keep='last', inplace=True)
+    df.drop_duplicates(subset=['Nomor Permohanan'], keep='last', inplace=True)
     final_rows = len(df)
     print(f"Menghapus {initial_rows - final_rows} data duplikat berdasarkan 'Nomor Permohonan'.")
     
