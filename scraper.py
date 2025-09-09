@@ -11,18 +11,26 @@ import os
 # =============================================================================
 # Konfigurasi
 # =============================================================================
+# --- PERBAIKAN URL DI SINI ---
 LOGIN_URL = 'https://admin-molina.imigrasi.go.id/admin/login'
 DATA_URL = 'https://admin-molina.imigrasi.go.id/admin/verification-staypermit'
+# -----------------------------
+
 YOUR_USERNAME = os.getenv("MOLINA_USERNAME")
 YOUR_PASSWORD = os.getenv("MOLINA_PASSWORD")
 
 TABS_TO_SCRAPE = ["Verifikasi", "Ditolak", "Dipending", "Disetujui", "Terbit"]
 
+TAB_ID_MAP = {
+    "Verifikasi": "verifikasi", "Ditolak": "ditolak", "Dipending": "dipending",
+    "Disetujui": "disetujui", "Terbit": "terbit"
+}
+
 # =============================================================================
 # Script Otomatisasi
 # =============================================================================
 if not YOUR_USERNAME or not YOUR_PASSWORD:
-    print("Error: Secret MOLINA_USERNAME dan MOLINA_PASSWORD belum diatur di GitHub Actions!")
+    print("Error: Secret MOLINA_USERNAME dan MOLINA_PASSWORD belum diatur!")
     exit()
 
 print("Memulai proses pengambilan data dari semua tab...")
@@ -35,8 +43,6 @@ except Exception:
     driver = webdriver.Chrome()
 
 all_data_from_all_tabs = []
-# Variabel untuk melacak referensi ke elemen baris terakhir yang terlihat
-last_known_row_element = None
 
 try:
     # --- 1. Proses Login ---
@@ -56,45 +62,38 @@ try:
     for tab_name in TABS_TO_SCRAPE:
         print(f"\n--- Memulai proses untuk tab: '{tab_name}' ---")
         try:
-            tab_element = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, tab_name)))
+            tab_id_suffix = TAB_ID_MAP[tab_name]
+            tab_id = f"data-{tab_id_suffix}-tab"
             
-            # Hanya klik jika bukan tab pertama, dan tunggu data lama hilang
-            if last_known_row_element: # Ini akan True untuk semua tab setelah tab pertama
-                tab_element.click()
-                print(f"Berhasil mengklik tab '{tab_name}'.")
-                # --- STRATEGI TUNGGU BARU YANG DISESUAIKAN ---
-                print("Menunggu data lama menghilang (staleness of last known row)...")
-                wait.until(EC.staleness_of(last_known_row_element))
-                print("Data baru terdeteksi. Memulai pengambilan.")
-                # ---------------------------------------------
-            
+            tab_element = wait.until(EC.element_to_be_clickable((By.ID, tab_id)))
+            tab_element.click()
+            print(f"Berhasil mengklik tab '{tab_name}'.")
+
+            wait.until(EC.text_to_be_present_in_element_attribute((By.ID, tab_id), 'class', 'active'))
+            print("Tab dikonfirmasi aktif. Memulai pengambilan data.")
+            time.sleep(2)
+
             # --- Loop Pagination ---
             page_number = 1
             while True:
                 print(f"Membaca data dari Halaman {page_number} di tab '{tab_name}'...")
                 
-                table_body = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".table-responsive tbody")))
-                
                 try:
-                    # Tunggu hingga setidaknya satu baris muncul
-                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".table-responsive tbody tr")))
+                    content_pane_id = f"data-{tab_id_suffix}"
+                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, f"#{content_pane_id} tbody tr")))
+                    table_body = driver.find_element(By.CSS_SELECTOR, f"#{content_pane_id} tbody")
                 except TimeoutException:
-                    # Jika tabel benar-benar kosong (tidak ada <tr> sama sekali)
                     print(f"Tab '{tab_name}' tidak memiliki data. Lanjut ke tab berikutnya.")
-                    break # Keluar dari loop pagination
-
+                    break
+                
                 rows = table_body.find_elements(By.TAG_NAME, "tr")
-                if rows:
-                    # Simpan referensi ke baris pertama di halaman saat ini
-                    last_known_row_element = rows[0]
-
                 for row in rows:
                     cols = row.find_elements(By.TAG_NAME, "td")
                     if len(cols) > 1:
                         row_data = [col.text for col in cols if col.text.strip() != '']
                         if row_data:
                             all_data_from_all_tabs.append(row_data)
-                
+
                 try:
                     next_button = driver.find_element(By.LINK_TEXT, "Next")
                     parent_li = next_button.find_element(By.XPATH, "..")
@@ -125,7 +124,7 @@ finally:
 df = pd.DataFrame()
 if all_data_from_all_tabs:
     print(f"\nTotal {len(all_data_from_all_tabs)} baris data berhasil dikumpulkan dari SEMUA tab.")
-    column_headers = ["Tanggal Pembayaran", "Layanan", "Kategori Produk", "Nomor Permohonan", "Tanggal Permohonan", "Penjamin", "Nama", "Jenis Kelamin", "Tanggal Lahir", "Kebangsaan", "No. Passport", "Jenis Produk", "Tujuan", "Posisi Permohonan", "Status Permohonan"]
+    column_headers = ["Tanggal Pembayaran", "Layanan", "Kategori Produk", "Nomor Permohonan", "Tanggal Permohonan", "Penjamin", "Nama", "Jenis Kelamin", "Tanggal Lahir", "Kebangsaan", "No. Passport", "Jenis Produk", "Tujuan", "Posisi Permohanan", "Status Permohonan"]
     df = pd.DataFrame(all_data_from_all_tabs, columns=column_headers)
     
     initial_rows = len(df)
