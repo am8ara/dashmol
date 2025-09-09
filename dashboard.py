@@ -16,64 +16,54 @@ st.title('📊 Dashboard Rekapitulasi Data Permohonan')
 st.write('Dashboard ini digunakan untuk memantau status permohonan yang masuk.')
 
 # =============================================================================
-# Fungsi Bantuan (Helper Functions)
+# Fungsi Bantuan (Tidak berubah)
 # =============================================================================
 
 def hitung_hari_kerja(tanggal_awal):
     if pd.isna(tanggal_awal):
         return 0
     tanggal_akhir = pd.Timestamp.now().normalize()
-    # np.busday_count menghitung hari kerja (Senin-Jumat)
     return np.busday_count(tanggal_awal.date(), tanggal_akhir.date())
 
 def highlight_lebih_3_hari(row):
-    tanggal_permohonan = row['Tanggal Permohonan']
-    if pd.isna(tanggal_permohonan):
-        return [''] * len(row)
-    
-    selisih = hitung_hari_kerja(tanggal_permohonan)
-    
-    if selisih > 3:
-        # Memberikan style background warna merah muda
+    # Menggunakan kolom yang sudah dihitung sebelumnya
+    if row['Lama Proses (Hari Kerja)'] > 3:
         return ['background-color: #FFCDD2'] * len(row)
     else:
         return [''] * len(row)
 
 # =============================================================================
-# Logika Utama Aplikasi
+# FUNGSI BARU UNTUK MEMUAT DATA DENGAN CACHING
 # =============================================================================
-
-try:
-    # Membaca data dari CSV yang sudah dibuat oleh scraper.py
-    df = pd.read_csv('data_imigrasi.csv', encoding='utf-8')
+@st.cache_data # <-- Ini adalah "mantra" untuk caching
+def load_and_prepare_data(csv_path):
+    """
+    Fungsi ini hanya akan dijalankan satu kali. Hasilnya (DataFrame) akan
+    disimpan di memori untuk pemanggilan berikutnya.
+    """
+    print("--- Menjalankan fungsi load_and_prepare_data (ini hanya akan muncul sekali) ---")
+    df = pd.read_csv(csv_path, encoding='utf-8')
     
-    # --- Pembersihan dan Persiapan Data ---
-    
-    jumlah_baris_asli = len(df)
-    
-    # Mengubah 'Tanggal Permohonan' menjadi format datetime, mengabaikan error
+    # Lakukan semua proses berat di sini
     df['Tanggal Permohonan'] = pd.to_datetime(df['Tanggal Permohonan'], errors='coerce')
-
-    # Menghapus baris jika 'Tanggal Permohonan' tidak valid
     df.dropna(subset=['Tanggal Permohonan'], inplace=True)
+    df['Lama Proses (Hari Kerja)'] = df['Tanggal Permohonan'].apply(hitung_hari_kerja)
     
-    jumlah_baris_bersih = len(df)
-    if jumlah_baris_asli > jumlah_baris_bersih:
-        st.warning(f"Peringatan: {jumlah_baris_asli - jumlah_baris_bersih} baris data diabaikan karena kolom tanggal kosong atau formatnya tidak dikenali.")
+    return df
+
+# =============================================================================
+# Logika Utama Aplikasi (Sekarang lebih ringan)
+# =============================================================================
+try:
+    # Memanggil fungsi yang sudah di-cache. Proses ini akan sangat cepat.
+    df = load_and_prepare_data('data_imigrasi.csv')
 
     if df.empty:
         st.error("Tidak ada data valid yang bisa ditampilkan. Mohon jalankan 'scraper.py' terlebih dahulu atau periksa isi file CSV Anda.")
     else:
-        # Menambahkan kolom 'Lama Proses (Hari Kerja)'
-        df['Lama Proses (Hari Kerja)'] = df['Tanggal Permohonan'].apply(hitung_hari_kerja)
-
-        # =========================================================================
-        # Tampilan Antarmuka (User Interface) - DENGAN FILTER BARU
-        # =========================================================================
-        
+        # --- Bagian UI dan Filter (sebagian besar tidak berubah) ---
         st.header('Filter Data Permohonan')
         
-        # --- Filter Berdasarkan Rentang Tanggal ---
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input(
@@ -86,8 +76,6 @@ try:
                 datetime.now().date()
             )
 
-        # --- FILTER BARU UNTUK LAYANAN DAN KATEGORI PRODUK ---
-        # Ambil opsi unik dari kolom yang relevan
         layanan_options = df['Layanan'].unique()
         kategori_options = df['Kategori Produk'].unique()
 
@@ -96,33 +84,28 @@ try:
             selected_layanan = st.multiselect(
                 'Pilih Layanan:',
                 options=layanan_options,
-                default=layanan_options # Defaultnya memilih semua opsi
+                default=layanan_options
             )
         with col4:
             selected_kategori = st.multiselect(
                 'Pilih Kategori Produk:',
                 options=kategori_options,
-                default=kategori_options # Defaultnya memilih semua opsi
+                default=kategori_options
             )
             
-        # --- Logika untuk menerapkan semua filter ---
         start_datetime = pd.to_datetime(start_date)
         end_datetime = pd.to_datetime(end_date) + pd.Timedelta(days=1)
 
-        # Terapkan semua filter secara berurutan
+        # Proses filtering tetap ringan dan cepat
         filtered_df = df[
-            # Filter Tanggal
             (df['Tanggal Permohonan'] >= start_datetime) & (df['Tanggal Permohonan'] < end_datetime) &
-            # Filter Layanan
             (df['Layanan'].isin(selected_layanan)) &
-            # Filter Kategori Produk
             (df['Kategori Produk'].isin(selected_kategori))
         ]
 
         st.header(f"Menampilkan {len(filtered_df)} Permohonan")
         st.write("Permohonan yang diproses lebih dari 3 hari kerja akan ditandai dengan warna merah muda.")
         
-        # Tampilkan DataFrame dengan highlight
         st.dataframe(
             filtered_df.style.apply(highlight_lebih_3_hari, axis=1),
             use_container_width=True
