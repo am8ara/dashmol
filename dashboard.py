@@ -26,16 +26,15 @@ def hitung_hari_kerja(tanggal_awal):
     return np.busday_count(tanggal_awal.date(), tanggal_akhir.date())
 
 def highlight_lebih_3_hari(row):
-    # Menggunakan kolom yang sudah dihitung sebelumnya
     if row['Lama Proses (Hari Kerja)'] > 3:
         return ['background-color: #FFCDD2'] * len(row)
     else:
         return [''] * len(row)
 
 # =============================================================================
-# FUNGSI BARU UNTUK MEMUAT DATA DENGAN CACHING
+# Fungsi untuk Memuat Data dengan Caching
 # =============================================================================
-@st.cache_data # <-- Ini adalah "mantra" untuk caching
+@st.cache_data
 def load_and_prepare_data(csv_path):
     """
     Fungsi ini hanya akan dijalankan satu kali. Hasilnya (DataFrame) akan
@@ -44,7 +43,6 @@ def load_and_prepare_data(csv_path):
     print("--- Menjalankan fungsi load_and_prepare_data (ini hanya akan muncul sekali) ---")
     df = pd.read_csv(csv_path, encoding='utf-8')
     
-    # Lakukan semua proses berat di sini
     df['Tanggal Permohonan'] = pd.to_datetime(df['Tanggal Permohonan'], errors='coerce')
     df.dropna(subset=['Tanggal Permohonan'], inplace=True)
     df['Lama Proses (Hari Kerja)'] = df['Tanggal Permohonan'].apply(hitung_hari_kerja)
@@ -52,16 +50,16 @@ def load_and_prepare_data(csv_path):
     return df
 
 # =============================================================================
-# Logika Utama Aplikasi (Sekarang lebih ringan)
+# Logika Utama Aplikasi
 # =============================================================================
 try:
-    # Memanggil fungsi yang sudah di-cache. Proses ini akan sangat cepat.
+    # Memanggil fungsi yang sudah di-cache.
     df = load_and_prepare_data('data_imigrasi.csv')
 
     if df.empty:
         st.error("Tidak ada data valid yang bisa ditampilkan. Mohon jalankan 'scraper.py' terlebih dahulu atau periksa isi file CSV Anda.")
     else:
-        # --- Bagian UI dan Filter (sebagian besar tidak berubah) ---
+        # --- Bagian UI dan Filter ---
         st.header('Filter Data Permohonan')
         
         col1, col2 = st.columns(2)
@@ -76,8 +74,10 @@ try:
                 datetime.now().date()
             )
 
-        layanan_options = df['Layanan'].unique()
-        kategori_options = df['Kategori Produk'].unique()
+        # Ambil opsi unik dari semua kolom yang akan difilter
+        layanan_options = sorted(df['Layanan'].unique())
+        kategori_options = sorted(df['Kategori Produk'].unique())
+        posisi_options = sorted(df['Posisi Permohonan'].unique()) # <-- BARIS BARU
 
         col3, col4 = st.columns(2)
         with col3:
@@ -93,14 +93,23 @@ try:
                 default=kategori_options
             )
             
+        # --- WIDGET FILTER BARU DI SINI ---
+        selected_posisi = st.multiselect(
+            'Pilih Posisi Permohonan:',
+            options=posisi_options,
+            default=posisi_options
+        )
+        # ------------------------------------
+            
         start_datetime = pd.to_datetime(start_date)
         end_datetime = pd.to_datetime(end_date) + pd.Timedelta(days=1)
 
-        # Proses filtering tetap ringan dan cepat
+        # --- LOGIKA FILTER DIPERBARUI ---
         filtered_df = df[
             (df['Tanggal Permohonan'] >= start_datetime) & (df['Tanggal Permohonan'] < end_datetime) &
             (df['Layanan'].isin(selected_layanan)) &
-            (df['Kategori Produk'].isin(selected_kategori))
+            (df['Kategori Produk'].isin(selected_kategori)) &
+            (df['Posisi Permohonan'].isin(selected_posisi)) # <-- KONDISI BARU
         ]
 
         st.header(f"Menampilkan {len(filtered_df)} Permohonan")
