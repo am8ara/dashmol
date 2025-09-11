@@ -16,7 +16,7 @@ st.title('📊 Dashboard Rekapitulasi Data Permohonan')
 st.write('Dashboard ini digunakan untuk memantau status permohonan yang masuk.')
 
 # =============================================================================
-# Fungsi Bantuan (Tidak berubah)
+# Fungsi Bantuan
 # =============================================================================
 
 def hitung_hari_kerja(tanggal_awal):
@@ -36,10 +36,6 @@ def highlight_lebih_3_hari(row):
 # =============================================================================
 @st.cache_data
 def load_and_prepare_data(csv_path):
-    """
-    Fungsi ini hanya akan dijalankan satu kali. Hasilnya (DataFrame) akan
-    disimpan di memori untuk pemanggilan berikutnya.
-    """
     print("--- Menjalankan fungsi load_and_prepare_data (ini hanya akan muncul sekali) ---")
     df = pd.read_csv(csv_path, encoding='utf-8')
     
@@ -53,7 +49,6 @@ def load_and_prepare_data(csv_path):
 # Logika Utama Aplikasi
 # =============================================================================
 try:
-    # Memanggil fungsi yang sudah di-cache.
     df = load_and_prepare_data('data_imigrasi.csv')
 
     if df.empty:
@@ -62,22 +57,34 @@ try:
         # --- Bagian UI dan Filter ---
         st.header('Filter Data Permohonan')
         
+        # --- PERUBAHAN UNTUK DEFAULT TANGGAL ---
+        # Hitung tanggal 1 bulan yang lalu dari hari ini
+        today = datetime.now()
+        one_month_ago = (today - pd.DateOffset(months=1)).date()
+
+        # Ambil tanggal paling awal dari data Anda
+        min_data_date = df['Tanggal Permohonan'].min().date()
+
+        # Gunakan tanggal yang lebih baru antara "1 bulan lalu" dan "data paling awal"
+        # Ini untuk menghindari tampilan kosong jika datanya sudah sangat lama
+        default_start_date = max(one_month_ago, min_data_date)
+        # ----------------------------------------
+
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input(
-                "Dari Tanggal", 
-                df['Tanggal Permohonan'].min().date()
+                "Dari Tanggal",
+                value=default_start_date # <-- Menggunakan default yang baru
             )
         with col2:
             end_date = st.date_input(
-                "Sampai Tanggal", 
-                datetime.now().date()
+                "Sampai Tanggal",
+                value=today.date() # <-- Menggunakan default hari ini
             )
 
-        # Ambil opsi unik dari semua kolom yang akan difilter
         layanan_options = sorted(df['Layanan'].unique())
         kategori_options = sorted(df['Kategori Produk'].unique())
-        posisi_options = sorted(df['Posisi Permohonan'].unique()) # <-- BARIS BARU
+        posisi_options = sorted(df['Posisi Permohonan'].unique())
 
         col3, col4 = st.columns(2)
         with col3:
@@ -93,23 +100,20 @@ try:
                 default=kategori_options
             )
             
-        # --- WIDGET FILTER BARU DI SINI ---
         selected_posisi = st.multiselect(
             'Pilih Posisi Permohonan:',
             options=posisi_options,
             default=posisi_options
         )
-        # ------------------------------------
             
         start_datetime = pd.to_datetime(start_date)
         end_datetime = pd.to_datetime(end_date) + pd.Timedelta(days=1)
 
-        # --- LOGIKA FILTER DIPERBARUI ---
         filtered_df = df[
             (df['Tanggal Permohonan'] >= start_datetime) & (df['Tanggal Permohonan'] < end_datetime) &
             (df['Layanan'].isin(selected_layanan)) &
             (df['Kategori Produk'].isin(selected_kategori)) &
-            (df['Posisi Permohonan'].isin(selected_posisi)) # <-- KONDISI BARU
+            (df['Posisi Permohonan'].isin(selected_posisi))
         ]
 
         st.header(f"Menampilkan {len(filtered_df)} Permohonan")
