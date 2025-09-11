@@ -6,7 +6,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
 import os
 
 # =============================================================================
@@ -44,43 +44,33 @@ except Exception:
 all_data_from_all_tabs = []
 
 try:
-    # --- 1. Proses Login ---
+    # --- Proses Login dan Navigasi ---
     driver.get(LOGIN_URL)
     wait = WebDriverWait(driver, 20)
     wait.until(EC.presence_of_element_located((By.ID, "username"))).send_keys(YOUR_USERNAME)
     wait.until(EC.presence_of_element_located((By.ID, "password"))).send_keys(YOUR_PASSWORD)
     wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']"))).click()
     print("Login berhasil.")
-
-    # --- 2. Buka Halaman Data Utama ---
     driver.get(DATA_URL)
     print(f"Berhasil membuka halaman data utama: {driver.current_url}")
     time.sleep(3)
 
-    # --- 3. Loop Utama untuk Setiap Tab ---
+    # --- Loop Utama untuk Setiap Tab ---
     for tab_name in TABS_TO_SCRAPE:
         print(f"\n--- Memulai proses untuk tab: '{tab_name}' ---")
         try:
             tab_id_suffix = TAB_ID_MAP[tab_name]
             tab_id = f"data-{tab_id_suffix}-tab"
-            
             tab_element = wait.until(EC.element_to_be_clickable((By.ID, tab_id)))
             tab_element.click()
             print(f"Berhasil mengklik tab '{tab_name}'.")
-
             wait.until(EC.text_to_be_present_in_element_attribute((By.ID, tab_id), 'class', 'active'))
             print("Tab dikonfirmasi aktif.")
             
-            # --- OPTIMASI 1: Ubah "Show Entries" menjadi 100 ---
             try:
                 dropdown_id = f"{tab_id_suffix}-table_length"
-                
-                # --- PERBAIKAN DI SINI: Tunggu hingga elemen bisa diinteraksikan ---
                 select_element = wait.until(EC.element_to_be_clickable((By.NAME, dropdown_id)))
-                # -------------------------------------------------------------
-                
-                select_object = Select(select_element)
-                select_object.select_by_value("100")
+                Select(select_element).select_by_value("100")
                 print("Berhasil mengubah tampilan menjadi 100 data per halaman.")
                 time.sleep(3)
             except TimeoutException:
@@ -89,24 +79,27 @@ try:
             # --- Loop Pagination ---
             page_number = 1
             while True:
-                print(f"Membaca data dari Halaman {page_number} di tab '{tab_name}'...")
-                
                 try:
+                    print(f"Membaca data dari Halaman {page_number} di tab '{tab_name}'...")
                     content_pane_id = f"data-{tab_id_suffix}"
                     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, f"#{content_pane_id} tbody tr")))
                     table_body = driver.find_element(By.CSS_SELECTOR, f"#{content_pane_id} tbody")
+                    
+                    rows = table_body.find_elements(By.TAG_NAME, "tr")
+                    for row in rows:
+                        cols = row.find_elements(By.TAG_NAME, "td")
+                        if len(cols) > 1:
+                            row_data = [col.text for col in cols]
+                            if row_data:
+                                all_data_from_all_tabs.append(row_data)
+                
+                except StaleElementReferenceException:
+                    print("Terdeteksi refresh halaman (stale element), mencoba membaca ulang halaman...")
+                    continue 
                 except TimeoutException:
                     print(f"Tab '{tab_name}' tidak memiliki data. Lanjut ke tab berikutnya.")
                     break
                 
-                rows = table_body.find_elements(By.TAG_NAME, "tr")
-                for row in rows:
-                    cols = row.find_elements(By.TAG_NAME, "td")
-                    if len(cols) > 1:
-                        row_data = [col.text for col in cols if col.text.strip() != '']
-                        if row_data:
-                            all_data_from_all_tabs.append(row_data)
-
                 try:
                     next_button = driver.find_element(By.LINK_TEXT, "Next")
                     parent_li = next_button.find_element(By.XPATH, "..")
@@ -121,28 +114,28 @@ try:
                 except NoSuchElementException:
                     print(f"Tidak ada halaman berikutnya di tab '{tab_name}'.")
                     break
-        
         except TimeoutException:
             print(f"Gagal menemukan atau memproses tab '{tab_name}'. Melewati tab ini.")
             continue
-
 except Exception as e:
     print(f"Terjadi error: {e}")
-
 finally:
     driver.quit()
 
 # --- 4. Proses Akhir ---
-# (Bagian ini tidak berubah)
-# ... (sisa kodenya sama persis) ...
 df = pd.DataFrame()
 if all_data_from_all_tabs:
     print(f"\nTotal {len(all_data_from_all_tabs)} baris data berhasil dikumpulkan dari SEMUA tab.")
-    column_headers = ["Tanggal Pembayaran", "Layanan", "Kategori Produk", "Nomor Permohonan", "Tanggal Permohonan", "Penjamin", "Nama", "Jenis Kelamin", "Tanggal Lahir", "Kebangsaan", "No. Passport", "Jenis Produk", "Tujuan", "Posisi Permohanan", "Status Permohonan"]
+    
+    # --- PASTIKAN BARIS INI TEPAT SEPERTI DI BAWAH INI ---
+    # --- INI ADALAH SUMBER ERROR ANDA ---
+    column_headers = ["Tanggal Pembayaran", "Layanan", "Kategori Produk", "Nomor Permohonan", "Tanggal Permohonan", "Penjamin", "Nama", "Jenis Kelamin", "Tanggal Lahir", "Kebangsaan", "No. Passport", "Jenis Produk", "Tujuan", "Posisi Permohonan", "Status Permohonan"]
+    # ----------------------------------------------------
+
     df = pd.DataFrame(all_data_from_all_tabs, columns=column_headers)
     
     initial_rows = len(df)
-    df.drop_duplicates(subset=['Nomor Permohanan'], keep='last', inplace=True)
+    df.drop_duplicates(subset=['Nomor Permohonan'], keep='last', inplace=True)
     final_rows = len(df)
     print(f"Menghapus {initial_rows - final_rows} data duplikat berdasarkan 'Nomor Permohonan'.")
     
