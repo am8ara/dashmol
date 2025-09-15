@@ -57,53 +57,52 @@ try:
         # --- Bagian UI dan Filter ---
         st.header('Filter Data Permohonan')
         
-        # --- PERUBAHAN UNTUK DEFAULT TANGGAL ---
-        # Hitung tanggal 1 bulan yang lalu dari hari ini
         today = datetime.now()
         one_month_ago = (today - pd.DateOffset(months=1)).date()
-
-        # Ambil tanggal paling awal dari data Anda
         min_data_date = df['Tanggal Permohonan'].min().date()
-
-        # Gunakan tanggal yang lebih baru antara "1 bulan lalu" dan "data paling awal"
-        # Ini untuk menghindari tampilan kosong jika datanya sudah sangat lama
         default_start_date = max(one_month_ago, min_data_date)
-        # ----------------------------------------
-
+        
         col1, col2 = st.columns(2)
         with col1:
-            start_date = st.date_input(
-                "Dari Tanggal",
-                value=default_start_date # <-- Menggunakan default yang baru
-            )
+            start_date = st.date_input("Dari Tanggal", value=default_start_date)
         with col2:
-            end_date = st.date_input(
-                "Sampai Tanggal",
-                value=today.date() # <-- Menggunakan default hari ini
-            )
+            end_date = st.date_input("Sampai Tanggal", value=today.date())
 
+        # Ambil semua opsi unik yang tersedia di data
         layanan_options = sorted(df['Layanan'].unique())
         kategori_options = sorted(df['Kategori Produk'].unique())
         posisi_options = sorted(df['Posisi Permohonan'].unique())
+
+        # --- PERUBAHAN UNTUK FILTER DEFAULT ---
+        # Tentukan daftar default yang Anda inginkan
+        default_layanan = ["Conversion", "Extend", "IMKApplication", "ITKT"]
+        default_kategori = ["ITAP", "ITK", "ITKT", "Multiple Exit Reentry Permit", "Stay Permit"]
+        default_posisi = ["Role : Kanim", "Role : Kakanim", "Role : Extend_Ditjenim", "Role : Altus_Ditjenim"]
+
+        # Filter daftar default untuk memastikan semua opsi ada di data (mencegah error)
+        actual_default_layanan = [opt for opt in default_layanan if opt in layanan_options]
+        actual_default_kategori = [opt for opt in default_kategori if opt in kategori_options]
+        actual_default_posisi = [opt for opt in default_posisi if opt in posisi_options]
+        # ------------------------------------
 
         col3, col4 = st.columns(2)
         with col3:
             selected_layanan = st.multiselect(
                 'Pilih Layanan:',
                 options=layanan_options,
-                default=layanan_options
+                default=actual_default_layanan # <-- Menggunakan default baru
             )
         with col4:
             selected_kategori = st.multiselect(
                 'Pilih Kategori Produk:',
                 options=kategori_options,
-                default=kategori_options
+                default=actual_default_kategori # <-- Menggunakan default baru
             )
             
         selected_posisi = st.multiselect(
             'Pilih Posisi Permohonan:',
             options=posisi_options,
-            default=posisi_options
+            default=actual_default_posisi # <-- Menggunakan default baru
         )
             
         start_datetime = pd.to_datetime(start_date)
