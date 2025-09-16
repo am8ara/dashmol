@@ -75,9 +75,9 @@ try:
 
         # --- PERUBAHAN UNTUK FILTER DEFAULT ---
         # Tentukan daftar default yang Anda inginkan
-        default_layanan = ["Conversion", "Extend", "IMKApplication", "ITKT"]
-        default_kategori = ["ITAP", "ITK", "ITKT", "Multiple Exit Reentry Permit", "Stay Permit"]
-        default_posisi = ["Role : Kanim", "Role : Kakanim", "Role : Extend_Ditjenim", "Role : Altus_Ditjenim"]
+        default_layanan = ["CONVERSION", "EXTEND", "IMKAPPLICATION", "ITKT"]
+        default_kategori = ["ITAP", "ITK", "ITKT", "Multiple Exit Re-entry Permit", "Stay Permit"]
+        default_posisi = ["Role : KANIM", "Role : KAKANIM", "Role : EXTEND_DITJENIM", "Role : ALTUS_DITJENIM"]
 
         # Filter daftar default untuk memastikan semua opsi ada di data (mencegah error)
         actual_default_layanan = [opt for opt in default_layanan if opt in layanan_options]
@@ -127,3 +127,4 @@ except FileNotFoundError:
     st.error("File 'data_imigrasi.csv' tidak ditemukan. Pastikan Anda sudah menjalankan 'scraper.py' untuk mengambil data terlebih dahulu.")
 except Exception as e:
     st.error(f"Terjadi error saat memproses data: {e}")
+
