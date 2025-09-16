@@ -15,13 +15,13 @@ st.set_page_config(
 # Pastikan jalur gambar sudah benar.
 # Jika gambar ada di folder yang sama dengan dashboard.py: "kantor_imigrasi.jpeg"
 # Jika gambar ada di subfolder 'images': "images/kantor_imigrasi.jpeg"
-background_image_path = "kanim.jpe" 
+background_image_path = "kanim.jpg" 
 
 st.markdown(
     f"""
     <style>
     .stApp {{
-        background-image: url("data:image/jpeg;base64,{
+        background-image: url("data:jpg;base64,{
             base64.b64encode(open(background_image_path, "rb").read()).decode()
         }");
         background-size: cover;
@@ -154,6 +154,7 @@ except FileNotFoundError:
     st.error("File 'data_imigrasi.csv' tidak ditemukan. Pastikan Anda sudah menjalankan 'scraper.py' untuk mengambil data terlebih dahulu.")
 except Exception as e:
     st.error(f"Terjadi error saat memproses data: {e}")
+
 
 
 
