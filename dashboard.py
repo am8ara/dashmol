@@ -11,6 +11,34 @@ st.set_page_config(
     page_icon="📊",
     layout="wide"
 )
+# --- BAGIAN BARU UNTUK BACKGROUND GAMBAR ---
+# Pastikan jalur gambar sudah benar.
+# Jika gambar ada di folder yang sama dengan dashboard.py: "kantor_imigrasi.jpeg"
+# Jika gambar ada di subfolder 'images': "images/kantor_imigrasi.jpeg"
+background_image_path = "kanim.jpe" 
+
+st.markdown(
+    f"""
+    <style>
+    .stApp {{
+        background-image: url("data:image/jpeg;base64,{
+            base64.b64encode(open(background_image_path, "rb").read()).decode()
+        }");
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        background-position: center;
+        opacity: 0.5; /* Tingkat opasitas 50% */
+    }}
+    .stApp > header {{
+        background-color: rgba(0,0,0,0); /* Membuat header transparan */
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+import base64 # <-- Pastikan import base64 ditambahkan di awal
+# ------------------------------------------
 
 st.title('📊 Dashboard Rekapitulasi Data Permohonan')
 st.write('Dashboard ini digunakan untuk memantau status permohonan yang masuk.')
@@ -127,4 +155,5 @@ except FileNotFoundError:
     st.error("File 'data_imigrasi.csv' tidak ditemukan. Pastikan Anda sudah menjalankan 'scraper.py' untuk mengambil data terlebih dahulu.")
 except Exception as e:
     st.error(f"Terjadi error saat memproses data: {e}")
+
 
