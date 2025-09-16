@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime
-
+import base64
 # =============================================================================
 # Konfigurasi Halaman Dashboard
 # =============================================================================
@@ -37,7 +37,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-import base64 # <-- Pastikan import base64 ditambahkan di awal
 # ------------------------------------------
 
 st.title('📊 Dashboard Rekapitulasi Data Permohonan')
@@ -155,5 +154,6 @@ except FileNotFoundError:
     st.error("File 'data_imigrasi.csv' tidak ditemukan. Pastikan Anda sudah menjalankan 'scraper.py' untuk mengambil data terlebih dahulu.")
 except Exception as e:
     st.error(f"Terjadi error saat memproses data: {e}")
+
 
 
