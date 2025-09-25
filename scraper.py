@@ -46,7 +46,7 @@ all_data_from_all_tabs = []
 try:
     # --- Proses Login dan Navigasi ---
     driver.get(LOGIN_URL)
-    wait = WebDriverWait(driver, 20)
+    wait = WebDriverWait(driver, 40)
     wait.until(EC.presence_of_element_located((By.ID, "username"))).send_keys(YOUR_USERNAME)
     wait.until(EC.presence_of_element_located((By.ID, "password"))).send_keys(YOUR_PASSWORD)
     wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']"))).click()
@@ -145,3 +145,4 @@ else:
     print("Gagal menyimpan file: Tidak ada data yang berhasil diekstrak.")
 
 print("Proses selesai.")
+
