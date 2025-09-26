@@ -7,13 +7,13 @@ on:
   schedule:
     # Menjalankan setiap jam, pada menit ke-0
     # Gunakan https://crontab.guru/ untuk membuat jadwal sendiri
-    - cron: '1 0 * * *'
+    - cron: '0 5 * * 1-5'
 
 # Pekerjaan yang harus dilakukan
 jobs:
   scrape:
     # Menggunakan sistem operasi Ubuntu terbaru
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       # 1. Checkout kode dari repository
