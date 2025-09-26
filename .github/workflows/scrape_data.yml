@@ -20,11 +20,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # 2. Setup Google Chrome (diperlukan untuk Selenium)
-      - name: Setup Chrome
-        uses: browser-actions/setup-chrome@v1
-
-      # 3. Setup Python
+     # 3. Setup Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
