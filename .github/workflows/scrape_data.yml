@@ -39,6 +39,11 @@ jobs:
           MOLINA_PASSWORD: ${{ secrets.MOLINA_PASSWORD }}
         run: python scraper.py
 
+        # --- TAMBAHKAN LANGKAH BARU INI ---
+      - name: Mark directory as safe for git
+        run: git config --global --add safe.directory ${{ github.workspace }}
+        shell: bash
+
       # 6. Commit dan push file data_imigrasi.csv yang baru
       - name: Commit and push if it changed
         uses: stefanzweifel/git-auto-commit-action@v5
