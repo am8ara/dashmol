@@ -14,6 +14,10 @@ jobs:
     # Menggunakan runner yang sudah Anda siapkan di Windows
     runs-on: self-hosted
 
+# --- TAMBAHKAN BLOK INI ---
+    permissions:
+      contents: write
+      
     steps:
       # 1. Checkout kode dari repository
       - name: Check out repository
