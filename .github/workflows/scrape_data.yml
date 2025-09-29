@@ -39,6 +39,21 @@ jobs:
           MOLINA_PASSWORD: ${{ secrets.MOLINA_PASSWORD }}
         run: python scraper.py
 
+      # ... (Langkah 'Run Python scraper' Anda di sini)
+      - name: Run Python scraper
+        run: python scraper.py
+
+      # --- TAMBAHKAN LANGKAH BARU INI ---
+      - name: Mark directory as safe for git
+        run: git config --global --add safe.directory ${{ github.workspace }}
+        shell: bash
+
+      # --- Langkah commit yang sudah ada ---
+      - name: Commit and push if it changed
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: Automated data update"
+          file_pattern: data_imigrasi.csv
         # --- TAMBAHKAN LANGKAH BARU INI ---
       - name: Mark directory as safe for git
         run: git config --global --add safe.directory ${{ github.workspace }}
