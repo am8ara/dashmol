@@ -39,8 +39,8 @@ jobs:
         run: python scraper.py
 
       # 5. Tandai direktori sebagai aman untuk Git
-      - name: Mark directory as safe for git
-        run: git config --global --add safe.directory ${{ github.workspace }}
+      - name: Mark repo as safe for git
+        run: git config --global --add safe.directory C:/actions-runner/_work/dashmol/dashmol
         shell: bash
 
       # 6. Commit dan push file CSV jika ada perubahan
